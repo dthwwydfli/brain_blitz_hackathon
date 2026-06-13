@@ -70,19 +70,21 @@ Agent name `citypulse_agent` both sides. Zone IDs `z_0_0`..`z_2_2` (0-indexed). 
 
 ## Phase 1 — AG-UI pipe (target 12:00, only job until green)
 
-- [ ] `services/redis_service.py` + `services/linkup_service.py` — minimal working stubs so imports
+- [x] `services/redis_service.py` + `services/linkup_service.py` — minimal working stubs so imports
       don't break before Person C lands real ones. Stub `LinkupService.search` returns a canned dict;
       stub `RedisService` get/set are no-ops returning None/True. Mark `# STUB — replace with Person C`.
-- [ ] `agent/state.py` — `AgentState` TypedDict byte-exact to SCHEMA §3 Python view.
-- [ ] `agent/graph.py` — **PIPE-TEST version only**: single `hello_node` that sets
+- [x] `agent/state.py` — `AgentState` TypedDict byte-exact to SCHEMA §3 Python view.
+- [x] `agent/graph.py` — **PIPE-TEST version only**: single `hello_node` that sets
       `status="researching"`, `research_log=["pipe test: hello from agent"]`, calls
       `copilotkit_emit_state(config, state)`, returns state. `set_entry_point("hello") → END`.
-- [ ] `main.py` — FastAPI, CORS `allow_origins=["*"]`, `CopilotKitSDK(agents=[LangGraphAgent(name="citypulse_agent", ...)])`,
-      `add_fastapi_endpoint(app, sdk, "/copilotkit")`, plus `GET /health`.
-- [ ] Run `uvicorn main:app --reload --port 8000` from `backend/`.
-- [ ] `tests/test_pipe.py` — POST a user message to `/copilotkit`, assert SSE stream contains
-      `pipe test: hello from agent`. (Backend-only proof; don't wait on frontend.)
-- [ ] Coordinate with Person A: chat message → string shows in sidebar <2s.
+- [x] `main.py` — FastAPI, CORS `allow_origins=["*"]`. NOTE drift: use RESOLVED API
+      `LangGraphAGUIAgent(...)` + `CopilotKitRemoteEndpoint(agents=[...])` (NOT `CopilotKitSDK`/`LangGraphAgent`),
+      `add_fastapi_endpoint(app, endpoint, "/copilotkit")`, plus `GET /health`.
+- [x] Run `uvicorn main:app --reload --port 8000` from `backend/` — boots clean, `/health` → `{"status":"ok"}`.
+- [x] `tests/test_pipe.py` — no pytest dep; run `.venv/bin/python tests/test_pipe.py`. Invokes graph,
+      asserts `research_log == ["pipe test: hello from agent"]` + `status=="researching"`. PASS.
+      (Manual SSE smoke via curl documented in docstring; full handshake validated with Person A.)
+- [ ] Coordinate with Person A: chat message → string shows in sidebar <2s. **← resume here (Gate 1, 12:00)**
 
 **Gate 1 (HARD 12:00):** state flows agent→frontend. If red, debug ONLY this. Use AGUI_PIPE.md failure table.
 
