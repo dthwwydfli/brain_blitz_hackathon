@@ -28,3 +28,23 @@ class AgentState(TypedDict):
     impact_query: Optional[str]    # internal trigger for "what if" queries
     impact_summary: Optional[str]  # set after a "what if" query
     is_scenario_switch: bool
+
+
+# Canonical zone order — SCHEMA §1. 0-indexed 3×3 grid, 9 zones.
+# Backend and frontend ZONE_IDS must be byte-identical. Frozen at Gate 2.
+ZONE_IDS: list[str] = [
+    "z_0_0", "z_0_1", "z_0_2",
+    "z_1_0", "z_1_1", "z_1_2",
+    "z_2_0", "z_2_1", "z_2_2",
+]
+
+
+def label_for_score(score: float) -> str:
+    """Derive risk label from score per SCHEMA §2 (band = score >= floor; score wins)."""
+    if score >= 0.8:
+        return "CRITICAL"
+    if score >= 0.6:
+        return "HIGH"
+    if score >= 0.3:
+        return "MEDIUM"
+    return "LOW"
