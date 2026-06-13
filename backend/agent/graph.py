@@ -1,25 +1,49 @@
-"""LangGraph graph — PIPE-TEST version only (Phase 1).
+"""LangGraph graph — FULL skeleton (Phase 2).
 
-Single hello_node that proves agent shared-state flows agent→frontend over AG-UI.
-Phase 2 replaces this with the full parse→research→scoring→emit→impact graph.
-Keep it pipe-test-only until Gate 1 (12:00) is green.
+Topology locked at Gate 2 (13:00 schema lock). Node bodies are pass-through stubs
+until Phase 3. Flow:
+
+    parse_query ──┬─(impact_query set)─→ impact ──→ emit_zones ──→ END
+                  └─(else)─────────────→ research → risk_scoring → emit_zones → END
+
+Stream via copilotkit_emit_state(config, state) inside node bodies (Phase 3) — shared state,
+NOT frontend useCopilotAction. Agent name `citypulse_agent` (see main.py).
 """
 from langgraph.graph import StateGraph, END
-from copilotkit.langgraph import copilotkit_emit_state
+from langgraph.checkpoint.memory import MemorySaver
 
 from agent.state import AgentState
+from agent.nodes.parse_node import parse_query_node
+from agent.nodes.research_node import research_node
+from agent.nodes.scoring_node import risk_scoring_node
+from agent.nodes.emit_node import emit_zones_node
+from agent.nodes.impact_node import impact_assessment_node
 
 
-async def hello_node(state: AgentState, config) -> AgentState:
-    state["status"] = "researching"
-    state["research_log"] = ["pipe test: hello from agent"]
-    await copilotkit_emit_state(config, state)
-    return state
+def should_handle_impact(state: AgentState) -> str:
+    """Route a 'what if' query to impact re-scoring; otherwise full research."""
+    if state.get("impact_query"):
+        return "impact"
+    return "research"
 
 
 def build_graph():
     graph = StateGraph(AgentState)
-    graph.add_node("hello", hello_node)
-    graph.set_entry_point("hello")
-    graph.add_edge("hello", END)
-    return graph.compile()
+
+    graph.add_node("parse_query", parse_query_node)
+    graph.add_node("research", research_node)
+    graph.add_node("risk_scoring", risk_scoring_node)
+    graph.add_node("emit_zones", emit_zones_node)
+    graph.add_node("impact", impact_assessment_node)
+
+    graph.set_entry_point("parse_query")
+    graph.add_conditional_edges("parse_query", should_handle_impact, {
+        "research": "research",
+        "impact": "impact",
+    })
+    graph.add_edge("research", "risk_scoring")
+    graph.add_edge("risk_scoring", "emit_zones")
+    graph.add_edge("impact", "emit_zones")
+    graph.add_edge("emit_zones", END)
+
+    return graph.compile(checkpointer=MemorySaver())

@@ -92,12 +92,16 @@ Agent name `citypulse_agent` both sides. Zone IDs `z_0_0`..`z_2_2` (0-indexed). 
 
 ## Phase 2 — Full state + graph skeleton (12:00–13:00)
 
-- [ ] Expand `agent/state.py` to full SCHEMA §3 (keep `research_results` internal, separate from `research_log`).
-- [ ] `agent/graph.py` — FULL: nodes `parse_query, research, risk_scoring, emit_zones, impact`.
+- [x] Expand `agent/state.py` to full SCHEMA §3 (keep `research_results` internal, separate from `research_log`).
+      (Already full from Phase 1 — verified, no change.)
+- [x] `agent/graph.py` — FULL: nodes `parse_query, research, risk_scoring, emit_zones, impact`.
       Entry `parse_query`. Conditional `should_handle_impact`: `impact_query` set → `impact`, else `research`.
       Edges: `research→risk_scoring→emit_zones→END`, `impact→emit_zones`. `MemorySaver` checkpointer.
-- [ ] Stub each node as pass-through returning state (so graph compiles before bodies written).
-- [ ] `python -c "from agent.graph import build_graph; build_graph(); print('compiles')"`
+- [x] Stub each node as pass-through returning state (so graph compiles before bodies written).
+      Files: `parse_node`/`research_node`/`scoring_node`/`emit_node`/`impact_node` in `agent/nodes/`.
+- [x] `python -c "from agent.graph import build_graph; build_graph(); print('compiles')"` → `compiles`.
+      NOTE: `tests/test_pipe.py` now expected-red (asserts dropped `hello_node`; also needs `thread_id`
+      in config now MemorySaver is wired). Rewrite in Phase 3 against real node output.
 
 **Gate 2 (13:00 schema lock):** graph compiles. Sit with A+C, lock interfaces. No field renames after.
 
