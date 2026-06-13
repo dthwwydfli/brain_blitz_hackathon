@@ -20,9 +20,19 @@ Agent name `citypulse_agent` both sides. Zone IDs `z_0_0`..`z_2_2` (0-indexed). 
 
 ---
 
-## Phase 0 — Scaffold + deps (do first)
+## ✅ RESOLVED API (copilotkit 0.1.94 / langgraph 1.2.5 — verified Phase 0)
+> Names DRIFTED from TeamExecutionPlan. Use THESE:
+> - `from copilotkit import CopilotKitRemoteEndpoint, LangGraphAGUIAgent` — **NOT** `CopilotKitSDK` / `LangGraphAgent`.
+> - `LangGraphAGUIAgent(name="citypulse_agent", graph=build_graph(), description=...)` (keyword-only).
+> - `endpoint = CopilotKitRemoteEndpoint(agents=[agent])`
+> - `from copilotkit.integrations.fastapi import add_fastapi_endpoint` → `add_fastapi_endpoint(app, endpoint, "/copilotkit")`
+> - `from copilotkit.langgraph import copilotkit_emit_state` → `await copilotkit_emit_state(config, state)` (unchanged).
+> - Graph must be a compiled `CompiledStateGraph` (pass `build_graph()`).
+> Frozen versions in `backend/requirements.txt`.
 
-- [ ] Create dir tree:
+## Phase 0 — Scaffold + deps ✅ DONE
+
+- [x] Create dir tree:
   ```
   backend/
     main.py
@@ -49,13 +59,12 @@ Agent name `citypulse_agent` both sides. Zone IDs `z_0_0`..`z_2_2` (0-indexed). 
     tests/
       test_pipe.py
   ```
-- [ ] `python3 -m venv backend/.venv && source backend/.venv/bin/activate`
-- [ ] Install latest (NOT old pins): `pip install langgraph langchain-google-genai fastapi uvicorn copilotkit linkup-sdk "redis[hiredis]" pydantic python-dotenv httpx`
-- [ ] Freeze actual resolved versions → `requirements.txt` (`pip freeze | grep -Ei 'langgraph|langchain|fastapi|uvicorn|copilotkit|linkup|redis|pydantic|dotenv|httpx'`)
-- [ ] Verify CopilotKit API surface matches plan: `python -c "import copilotkit; from copilotkit.langgraph import copilotkit_emit_state; from copilotkit.integrations.fastapi import add_fastapi_endpoint; from copilotkit import CopilotKitSDK, LangGraphAgent; print('ok')"`
-  - If import names differ (SDK version drift), record real names and adapt all files. **Blocking.**
+- [x] `python3 -m venv backend/.venv` (use `backend/.venv/bin/python` directly; no activate needed)
+- [x] Install latest (NOT old pins). Done — versions higher than plan expected (see RESOLVED API block).
+- [x] Freeze resolved versions → `backend/requirements.txt`.
+- [x] Verify CopilotKit API surface. Found drift: `LangGraphAgent`→`LangGraphAGUIAgent`, `CopilotKitSDK`→`CopilotKitRemoteEndpoint`. Recorded above.
 
-**Gate 0:** all imports resolve. Versions frozen.
+**Gate 0 ✅:** all imports resolve. Versions frozen. API drift mapped.
 
 ---
 
