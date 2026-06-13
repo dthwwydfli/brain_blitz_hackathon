@@ -95,12 +95,21 @@ async def parse_query_node(state: AgentState, config) -> AgentState:
     text = _last_user_text(state.get("messages", []))
     low = text.lower()
 
+    prev_city = state.get("city", "")
+    prev_scenario = state.get("scenario", "")
+
     city, scenario = _heuristic(text)
     if not city or not scenario:
         city, scenario = await _gemini_fill(text, city, scenario)
 
-    state["city"] = city or state.get("city", "")
-    state["scenario"] = scenario or state.get("scenario", "")
+    state["city"] = city or prev_city
+    state["scenario"] = scenario or prev_scenario
+
+    # Scenario switch = same city already in state, but the scenario changed.
+    # Lets the UI treat it as a risk-layer overlay (reuse Redis-cached city) not a fresh build.
+    state["is_scenario_switch"] = bool(
+        prev_city and state["city"] == prev_city and state["scenario"] != prev_scenario
+    )
 
     state["impact_query"] = text if any(t in low for t in IMPACT_TRIGGERS) else None
 

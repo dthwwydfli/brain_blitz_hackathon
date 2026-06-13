@@ -11,8 +11,9 @@
 > - Staged 3D build = backend loop appends `zone_risks` one at a time + `asyncio.sleep(0.8)` + emit each. Backend is the ONLY clock; frontend adds no stagger.
 > - Score bands (SCHEMA §2): LOW 0–0.3 / MEDIUM 0.3–0.6 / HIGH 0.6–0.8 / CRITICAL 0.8–1.0. Label derived from score; score wins on conflict.
 > **Env:** Python 3.13, Node 24. Use `backend/.venv`. Install LATEST deps then freeze — do NOT use old pins (`langgraph==0.2.28` etc.) from TeamExecutionPlan; they break on 3.13.
-> **Stub strategy:** Person C owns `linkup_service.py` + `redis_service.py` (due 13:00). I write working STUBS so I'm unblocked until then, swap real ones in Phase 4.
-> **Progress:** check the `[ ]`/`[x]` boxes below — last unchecked box = where to resume. Repo currently: docs only, no code yet (as of first session).
+> **Stub strategy:** Person C never delivered `linkup_service.py`/`redis_service.py`. Phase 4 decision (user-confirmed): **I built the real ones myself** (linkup-sdk + redis.asyncio). Both degrade safely when keys absent. Swap C's in only if more robust.
+> **⚠ Phase 4 blocker:** `.env` keys all empty/placeholder — live verification blocked until Person C drops real `GEMINI_API_KEY`/`LINKUP_API_KEY`/`REDIS_URL`+`REDIS_TOKEN`. Code complete + structurally green via fallbacks; re-run `tests/test_pipe.py` once keys land.
+> **Progress:** Phases 0–4 code done. Only open items: Person A stream pairing (Gate 1/3 live) + live re-verify after keys land. Phase 5 = freeze.
 
 My execution plan. Authority order: **SCHEMA.md > AGUI_PIPE.md > TeamExecutionPlan.md**.
 Agent name `citypulse_agent` both sides. Zone IDs `z_0_0`..`z_2_2` (0-indexed). Stream via
@@ -134,13 +135,32 @@ Order = dependency order. Test each in isolation with a fake state dict before w
 
 ## Phase 4 — Tune + harden (15:30–17:30)
 
-- [ ] Tune scoring prompt until scores varied/realistic across zones (not uniform).
-- [ ] Test 3+ combos: London flooding, NYC power grid failure, Tokyo transport disruption.
-- [ ] Linkup 429 exponential backoff (confirm Person C's service handles; else add in node).
-- [ ] Impact test: "What if London built a flood barrier at zone 4" → only affected zones recolour.
-- [ ] Scenario switch reuses Redis cache (no re-research same city+scenario).
-- [ ] Pair with Person A on any stream/integration bugs.
-- [ ] Swap Person C's real `linkup_service`/`redis_service` in; delete my stubs.
+> **⚠ KEY BLOCKER (Person C):** `backend/.env` keys are all EMPTY/placeholder
+> (`GEMINI_API_KEY`/`LINKUP_API_KEY`/`REDIS_TOKEN` empty; `REDIS_URL=rediss://your-upstash-url`).
+> Code is complete + structurally verified via graceful-degradation fallbacks (uniform-LOW
+> scoring, canned Linkup, no-op Redis). **Live verification (score variance, real research,
+> cache reuse) is BLOCKED until Person C drops real keys.** Re-run `tests/test_pipe.py` once
+> keys land — the `HAS_GEMINI` gate auto-enables the ≥2-band variance assertion.
+
+- [x] **Built real services myself** (Person C never delivered): `services/linkup_service.py` uses
+      `linkup-sdk` `async_search` (sourcedAnswer → `{answer, sources:[{title,url}]}`);
+      `services/redis_service.py` uses `redis.asyncio.from_url` on the `rediss://` URL, SCHEMA §5 keys,
+      TTL 7200. Both degrade safely (canned / no-op) when keys absent. Interfaces byte-identical to old
+      stubs — zero node changes. Swap Person C's in later only if more robust.
+- [x] Tune scoring prompt — `_build_prompt` now demands score spread (≥1 HIGH/CRITICAL + ≥1 LOW),
+      ties scores to grid geography, cites research. (Variance unverifiable until Gemini key lands.)
+- [x] Test 3+ combos — `tests/test_pipe.py` runs London flooding / NYC power grid / Tokyo transport;
+      asserts 9 valid zones each. ≥2-band variance asserted only when `GEMINI_API_KEY` set.
+- [x] Linkup 429 exponential backoff — in `linkup_service.search` (0.5→1→2s on
+      `LinkupTooManyRequestsError`/transient), node try/except is outer net.
+- [x] Impact test — `test_impact`: "what if flood barrier at zone 4" → 9 zones intact,
+      `impact_summary` set, `impact_query` cleared.
+- [x] Scenario switch — `parse_node` now sets `is_scenario_switch` (same city, new scenario);
+      `research_node` cache reuse path ready (`test_scenario_switch_flag` green). Cache HIT needs real Redis.
+- [ ] Pair with Person A on any stream/integration bugs. (N/A this session — solo.)
+- [x] ~~Swap Person C's real services in~~ → superseded: built real services myself (above).
+
+**All 6 structural tests green via fallback. `/health` boots OK (`redis:disconnected` w/ placeholder).**
 
 ---
 

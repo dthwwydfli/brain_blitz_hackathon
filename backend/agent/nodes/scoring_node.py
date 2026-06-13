@@ -68,14 +68,21 @@ def _fallback_zones() -> list[ZoneRisk]:
 def _build_prompt(city: str, scenario: str, digest: str, zone_ids: list[str]) -> str:
     return (
         f"You are an infrastructure risk analyst. Score the {scenario} risk for {city}.\n\n"
-        f"{_GRID_LEGEND}\n\n"
+        f"{_GRID_LEGEND}\n"
+        "Reason from the real geography of each compass sector (rivers/coast, elevation, "
+        "density, critical infrastructure) — do NOT give every zone the same score.\n\n"
         f"Research notes:\n{digest}\n\n"
         f"Score EXACTLY these zones: {zone_ids}.\n"
         "Respond with ONLY a JSON array, no prose, no code fences. Each element:\n"
         '{"zone_id": "z_r_c", "score": 0.0-1.0, '
-        '"evidence": ["2-3 short grounded bullets"], '
-        '"sources": [{"title": "...", "url": "..."}] (max 3, may be empty)}\n'
-        "Vary scores realistically across zones based on geography and exposure."
+        '"evidence": ["2-3 short grounded bullets, citing the research notes where possible"], '
+        '"sources": [{"title": "...", "url": "..."}] (max 3, may be empty)}\n\n'
+        "Scoring rules:\n"
+        "- Spread scores across the grid: unless the research clearly says otherwise, include at "
+        "least one HIGH-or-CRITICAL zone (>=0.6) and at least one LOW zone (<0.3).\n"
+        "- Bands: LOW 0.0-0.3, MEDIUM 0.3-0.6, HIGH 0.6-0.8, CRITICAL 0.8-1.0.\n"
+        "- Tie each score to that sector's specific exposure for THIS scenario; identical scores "
+        "across zones is almost always wrong."
     )
 
 

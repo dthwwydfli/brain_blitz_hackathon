@@ -26,6 +26,9 @@ from agent.graph import build_graph
 from agent.state import ZONE_IDS, label_for_score
 
 
+HAS_GEMINI = bool(os.getenv("GEMINI_API_KEY"))
+
+
 def _base_state(text: str) -> dict:
     return {
         "messages": [HumanMessage(content=text)],
@@ -42,6 +45,16 @@ def _base_state(text: str) -> dict:
     }
 
 
+def _assert_valid_zones(zones: list) -> None:
+    assert len(zones) == 9, f"expected 9 zones, got {len(zones)}"
+    seen = {z["zone_id"] for z in zones}
+    assert seen == set(ZONE_IDS), f"zone ids drift: {seen ^ set(ZONE_IDS)}"
+    for z in zones:
+        assert 0.0 <= z["score"] <= 1.0, z
+        assert z["label"] == label_for_score(z["score"]), z  # score wins
+        assert len(z["sources"]) <= 3, z
+
+
 async def test_full_run():
     graph = build_graph()
     config = {"configurable": {"thread_id": "test-thread-1"}}
@@ -51,21 +64,78 @@ async def test_full_run():
     assert result["city"], "city not parsed"
     assert result["scenario"], "scenario not parsed"
 
-    zones = result["zone_risks"]
-    assert len(zones) == 9, f"expected 9 zones, got {len(zones)}"
-
-    seen_ids = {z["zone_id"] for z in zones}
-    assert seen_ids == set(ZONE_IDS), f"zone ids drift: {seen_ids ^ set(ZONE_IDS)}"
-
-    for z in zones:
-        assert 0.0 <= z["score"] <= 1.0, z
-        assert z["label"] == label_for_score(z["score"]), z  # score wins
-        assert len(z["sources"]) <= 3, z
-
+    _assert_valid_zones(result["zone_risks"])
     assert result["research_log"], "research_log empty"
     print(f"PASS: full run — {result['city']} / {result['scenario']}, 9 zones, "
           f"status={result['status']}")
 
 
+async def test_combos():
+    """3 scenarios produce 9 valid zones each. With a Gemini key, scores must span >=2 bands
+    (the Phase 4 tuning goal); without a key the uniform-LOW fallback skips that assertion."""
+    combos = [
+        ("London flooding", "London", "flooding"),
+        ("NYC power grid failure", "New York", "power grid failure"),
+        ("Tokyo transport disruption", "Tokyo", "transport disruption"),
+    ]
+    for i, (text, exp_city, exp_scenario) in enumerate(combos):
+        graph = build_graph()
+        config = {"configurable": {"thread_id": f"combo-{i}"}}
+        result = await graph.ainvoke(_base_state(text), config)
+
+        assert result["status"] == "complete", result["status"]
+        assert result["city"] == exp_city, f"{result['city']} != {exp_city}"
+        assert result["scenario"] == exp_scenario, f"{result['scenario']} != {exp_scenario}"
+        _assert_valid_zones(result["zone_risks"])
+
+        if HAS_GEMINI:
+            bands = {z["label"] for z in result["zone_risks"]}
+            assert len(bands) >= 2, f"{text}: scores too flat, only bands {bands}"
+        print(f"PASS: combo — {exp_city} / {exp_scenario}, 9 zones"
+              + (f", bands={sorted({z['label'] for z in result['zone_risks']})}" if HAS_GEMINI else " (fallback)"))
+
+
+async def test_impact():
+    """A 'what if' message routes to impact: 9 zones intact, impact_summary set, impact_query cleared."""
+    graph = build_graph()
+    config = {"configurable": {"thread_id": "impact-1"}}
+    base = await graph.ainvoke(_base_state("London flooding"), config)
+    assert base["zone_risks"], "no prior zones to assess against"
+
+    follow = dict(base)
+    follow["messages"] = [HumanMessage(content="What if London built a flood barrier at zone 4")]
+    result = await graph.ainvoke(follow, config)
+
+    assert result["status"] == "complete", result["status"]
+    _assert_valid_zones(result["zone_risks"])
+    assert result.get("impact_summary"), "impact_summary not set"
+    assert not result.get("impact_query"), "impact_query not cleared"
+    print(f"PASS: impact — summary set, query cleared, 9 zones intact")
+
+
+async def test_scenario_switch_flag():
+    """is_scenario_switch flips when same city + new scenario arrives on the same thread.
+    Run through the graph (shared thread_id) so the checkpointer carries the prior city/scenario."""
+    graph = build_graph()
+    config = {"configurable": {"thread_id": "switch-1"}}
+    first = await graph.ainvoke(_base_state("London flooding"), config)
+    assert first["is_scenario_switch"] is False, "first run should not be a switch"
+
+    second = await graph.ainvoke(
+        {"messages": [HumanMessage(content="Now show me power grid failure")]}, config
+    )
+    assert second["city"] == "London", second["city"]
+    assert second["scenario"] == "power grid failure", second["scenario"]
+    assert second["is_scenario_switch"] is True, "switch flag not set"
+    print("PASS: scenario-switch flag set (London flooding → power grid failure)")
+
+
+async def main():
+    await test_full_run()
+    await test_combos()
+    await test_impact()
+    await test_scenario_switch_flag()
+
+
 if __name__ == "__main__":
-    asyncio.run(test_full_run())
+    asyncio.run(main())
