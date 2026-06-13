@@ -10,8 +10,9 @@ All three people do this independently before arriving:
 
 ```bash
 # Clone CopilotKit starter
-git clone https://github.com/CopilotKit/open-multi-agent-canvas
-cd open-multi-agent-canvas
+git clone https://github.com/jerelvelarde/generative-ui-london-hackathon-starter/tree/main
+cd open-generative-ui-london-hackathon-starter
+
 
 # Install frontend deps
 cd frontend && npm install
