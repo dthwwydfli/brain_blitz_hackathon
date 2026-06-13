@@ -14,6 +14,7 @@
 > **Stub strategy:** Person C never delivered `linkup_service.py`/`redis_service.py`. Phase 4 decision (user-confirmed): **I built the real ones myself** (linkup-sdk + redis.asyncio). Both degrade safely when keys absent. Swap C's in only if more robust.
 > **⚠ Phase 4 blocker:** `.env` keys all empty/placeholder — live verification blocked until Person C drops real `GEMINI_API_KEY`/`LINKUP_API_KEY`/`REDIS_URL`+`REDIS_TOKEN`. Code complete + structurally green via fallbacks; re-run `tests/test_pipe.py` once keys land.
 > **Progress:** Phases 0–4 code done. Only open items: Person A stream pairing (Gate 1/3 live) + live re-verify after keys land. Phase 5 = freeze.
+> **Phase 6 (blueprint feature, added post-Phase 4):** new `blueprint_node` runs `parse_query → blueprint → research` and picks `scene_type` (`city_grid` | `network_graph`), emitting a `blueprint` field on shared state. **Decisions:** (1) shared-state transport only — emit the WHOLE state (NOT the spec's `{"type":...}` event dicts, which clobber state/break the pipe); (2) blueprint = display metadata — scoring/emit/impact stay on the fixed 9 zones. `emit_node` uses 0.5s stagger for network_graph (else 0.8s) + persists `blueprint` in `city_state`. Reuses `agent/llm.py` (no module-level LLM). Network_graph dynamic-node scoring is deferred. Docs updated: SCHEMA §3 + AGUI_PIPE `CityAgentState`.
 
 My execution plan. Authority order: **SCHEMA.md > AGUI_PIPE.md > TeamExecutionPlan.md**.
 Agent name `citypulse_agent` both sides. Zone IDs `z_0_0`..`z_2_2` (0-indexed). Stream via

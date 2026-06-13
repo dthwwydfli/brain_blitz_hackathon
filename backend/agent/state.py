@@ -25,6 +25,7 @@ class AgentState(TypedDict):
     research_log: list[str]        # live feed for ResearchProgress sidebar
     research_results: list[dict]   # raw Linkup — internal only, NOT sent to UI
     zone_risks: list[ZoneRisk]     # grows as zones are scored — drives 3D build
+    blueprint: Optional[dict]      # scene blueprint: {scene_type, title, camera_preset, nodes[], connections[]}
     impact_query: Optional[str]    # internal trigger for "what if" queries
     impact_summary: Optional[str]  # set after a "what if" query
     is_scenario_switch: bool

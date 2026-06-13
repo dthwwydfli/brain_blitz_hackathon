@@ -39,10 +39,18 @@ def _base_state(text: str) -> dict:
         "research_log": [],
         "research_results": [],
         "zone_risks": [],
+        "blueprint": None,
         "impact_query": None,
         "impact_summary": None,
         "is_scenario_switch": False,
     }
+
+
+def _assert_valid_blueprint(bp) -> None:
+    assert isinstance(bp, dict), f"blueprint not set: {bp!r}"
+    assert bp.get("scene_type") in ("city_grid", "network_graph"), bp
+    assert isinstance(bp.get("nodes"), list), bp
+    assert isinstance(bp.get("connections"), list), bp
 
 
 def _assert_valid_zones(zones: list) -> None:
@@ -65,9 +73,10 @@ async def test_full_run():
     assert result["scenario"], "scenario not parsed"
 
     _assert_valid_zones(result["zone_risks"])
+    _assert_valid_blueprint(result["blueprint"])
     assert result["research_log"], "research_log empty"
     print(f"PASS: full run — {result['city']} / {result['scenario']}, 9 zones, "
-          f"status={result['status']}")
+          f"blueprint={result['blueprint']['scene_type']}, status={result['status']}")
 
 
 async def test_combos():
@@ -87,6 +96,7 @@ async def test_combos():
         assert result["city"] == exp_city, f"{result['city']} != {exp_city}"
         assert result["scenario"] == exp_scenario, f"{result['scenario']} != {exp_scenario}"
         _assert_valid_zones(result["zone_risks"])
+        _assert_valid_blueprint(result["blueprint"])
 
         if HAS_GEMINI:
             bands = {z["label"] for z in result["zone_risks"]}
@@ -130,11 +140,27 @@ async def test_scenario_switch_flag():
     print("PASS: scenario-switch flag set (London flooding → power grid failure)")
 
 
+async def test_blueprint_present():
+    """blueprint_node sets a valid blueprint. Without a Gemini key the fallback yields
+    city_grid; with a key a power-grid query should pick network_graph (value asserted
+    only when HAS_GEMINI, mirroring the score-variance gate)."""
+    graph = build_graph()
+    config = {"configurable": {"thread_id": "blueprint-1"}}
+    result = await graph.ainvoke(_base_state("UK power grid failure"), config)
+
+    _assert_valid_blueprint(result["blueprint"])
+    if HAS_GEMINI:
+        assert result["blueprint"]["scene_type"] == "network_graph", result["blueprint"]
+    print(f"PASS: blueprint — scene_type={result['blueprint']['scene_type']}"
+          + ("" if HAS_GEMINI else " (fallback)"))
+
+
 async def main():
     await test_full_run()
     await test_combos()
     await test_impact()
     await test_scenario_switch_flag()
+    await test_blueprint_present()
 
 
 if __name__ == "__main__":

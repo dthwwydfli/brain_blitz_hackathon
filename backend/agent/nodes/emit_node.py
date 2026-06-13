@@ -23,13 +23,17 @@ def _ordered(zones: list) -> list:
 async def emit_zones_node(state: AgentState, config) -> AgentState:
     scored = _ordered(state.get("zone_risks", []))
 
+    # network_graph scenes have more nodes → tighter stagger so the build stays snappy.
+    scene_type = (state.get("blueprint") or {}).get("scene_type", "city_grid")
+    delay = 0.8 if scene_type == "city_grid" else 0.5
+
     # Staged build — the 3D map materializes zone-by-zone off this loop.
     state["zone_risks"] = []
     state["status"] = "scoring"
     for zone in scored:
         state["zone_risks"].append(zone)
         await copilotkit_emit_state(config, state)
-        await asyncio.sleep(0.8)  # THE drama delay — frontend adds no stagger
+        await asyncio.sleep(delay)  # THE drama delay — frontend adds no stagger
 
     state["status"] = "complete"
     await copilotkit_emit_state(config, state)
@@ -38,6 +42,7 @@ async def emit_zones_node(state: AgentState, config) -> AgentState:
     city_state = {
         "city": state.get("city", ""),
         "scenario": state.get("scenario", ""),
+        "blueprint": state.get("blueprint"),
         "zones": {z["zone_id"]: z for z in state["zone_risks"]},
         "last_updated": datetime.now(timezone.utc).isoformat(),
     }

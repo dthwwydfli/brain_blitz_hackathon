@@ -89,6 +89,7 @@ export interface CityAgentState {
     evidence: string[];
     sources: { title: string; url: string }[];
   }[];
+  blueprint: Blueprint | null;   // ADDITIVE — scene structure (see SCHEMA.md §3)
   impact_summary: string | null;
 }
 

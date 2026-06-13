@@ -63,7 +63,27 @@ interface CityAgentState {
   status: "idle" | "researching" | "scoring" | "complete";
   research_log: string[];       // live feed for ResearchProgress sidebar
   zone_risks: ZoneRisk[];       // grows as zones are scored — drives 3D build
+  blueprint: Blueprint | null;  // ADDITIVE (post-lock) — scene structure, see below
   impact_summary: string | null;// set after a "what if" query
+}
+
+// ADDITIVE post-lock extension (display metadata; does NOT change scoring).
+// scene_type picks the 3D scene: "city_grid" (9-zone grid, default) or
+// "network_graph" (utility network). Scoring/colour still map to zone_risks.
+interface BlueprintNode {
+  id: string;            // city_grid: "z_0_0".."z_2_2"; network_graph: "node_1"..
+  label: string;
+  type?: string;         // e.g. "hub"
+  risk_score?: number;   // initial estimate only
+  position?: { x: number; y: number; z: number };
+  size?: number;
+}
+interface Blueprint {
+  scene_type: "city_grid" | "network_graph";
+  title: string;
+  camera_preset: string;            // e.g. "isometric"
+  nodes: BlueprintNode[];
+  connections: { from: string; to: string; risk_score?: number }[];
 }
 ```
 
@@ -86,6 +106,7 @@ class AgentState(TypedDict):
     research_log: list[str]
     research_results: list[dict]   # raw Linkup, internal only — NOT sent to UI
     zone_risks: list[ZoneRisk]
+    blueprint: Optional[dict]      # ADDITIVE (post-lock) — {scene_type,title,camera_preset,nodes[],connections[]}
     impact_query: Optional[str]    # internal trigger
     impact_summary: Optional[str]
     is_scenario_switch: bool
